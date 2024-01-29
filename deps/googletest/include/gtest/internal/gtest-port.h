@@ -338,10 +338,9 @@
 #define GTEST_HAS_NOTIFICATION_ 0
 #endif
 
-#if defined(GTEST_HAS_ABSL) && !defined(GTEST_NO_ABSL_FLAGS)
-#define GTEST_INTERNAL_HAS_ABSL_FLAGS  // Used only in this file.
-#include "absl/flags/flag.h"
+#ifdef GTEST_HAS_ABSL
 #include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #endif
 
@@ -2006,9 +2005,7 @@ inline std::string StripTrailingSpaces(std::string str) {
 namespace posix {
 
 // File system porting.
-// Note: Not every I/O-related function is related to file systems, so don't
-// just disable all of them here. For example, fileno() and isatty(), etc. must
-// always be available in order to detect if a pipe points to a terminal.
+#if GTEST_HAS_FILE_SYSTEM
 #ifdef GTEST_OS_WINDOWS
 
 typedef struct _stat StatStruct;
@@ -2019,32 +2016,27 @@ inline int FileNo(FILE* file) { return reinterpret_cast<int>(_fileno(file)); }
 // time and thus not defined there.
 #else
 inline int FileNo(FILE* file) { return _fileno(file); }
-#if GTEST_HAS_FILE_SYSTEM
 inline int Stat(const char* path, StatStruct* buf) { return _stat(path, buf); }
 inline int RmDir(const char* dir) { return _rmdir(dir); }
 inline bool IsDir(const StatStruct& st) { return (_S_IFDIR & st.st_mode) != 0; }
-#endif
 #endif  // GTEST_OS_WINDOWS_MOBILE
 
 #elif defined(GTEST_OS_ESP8266)
 typedef struct stat StatStruct;
 
 inline int FileNo(FILE* file) { return fileno(file); }
-#if GTEST_HAS_FILE_SYSTEM
 inline int Stat(const char* path, StatStruct* buf) {
   // stat function not implemented on ESP8266
   return 0;
 }
 inline int RmDir(const char* dir) { return rmdir(dir); }
 inline bool IsDir(const StatStruct& st) { return S_ISDIR(st.st_mode); }
-#endif
 
 #else
 
 typedef struct stat StatStruct;
 
 inline int FileNo(FILE* file) { return fileno(file); }
-#if GTEST_HAS_FILE_SYSTEM
 inline int Stat(const char* path, StatStruct* buf) { return stat(path, buf); }
 #ifdef GTEST_OS_QURT
 // QuRT doesn't support any directory functions, including rmdir
@@ -2053,9 +2045,9 @@ inline int RmDir(const char*) { return 0; }
 inline int RmDir(const char* dir) { return rmdir(dir); }
 #endif
 inline bool IsDir(const StatStruct& st) { return S_ISDIR(st.st_mode); }
-#endif
 
 #endif  // GTEST_OS_WINDOWS
+#endif  // GTEST_HAS_FILE_SYSTEM
 
 // Other functions with a different name on Windows.
 
@@ -2253,7 +2245,7 @@ using TimeInMillis = int64_t;  // Represents time in milliseconds.
 #endif  // !defined(GTEST_FLAG)
 
 // Pick a command line flags implementation.
-#ifdef GTEST_INTERNAL_HAS_ABSL_FLAGS
+#ifdef GTEST_HAS_ABSL
 
 // Macros for defining flags.
 #define GTEST_DEFINE_bool_(name, default_val, doc) \
@@ -2278,8 +2270,7 @@ using TimeInMillis = int64_t;  // Represents time in milliseconds.
   (void)(::absl::SetFlag(&GTEST_FLAG(name), value))
 #define GTEST_USE_OWN_FLAGFILE_FLAG_ 0
 
-#undef GTEST_INTERNAL_HAS_ABSL_FLAGS
-#else  // ndef GTEST_INTERNAL_HAS_ABSL_FLAGS
+#else  // GTEST_HAS_ABSL
 
 // Macros for defining flags.
 #define GTEST_DEFINE_bool_(name, default_val, doc)  \
@@ -2321,7 +2312,7 @@ using TimeInMillis = int64_t;  // Represents time in milliseconds.
 #define GTEST_FLAG_SET(name, value) (void)(::testing::GTEST_FLAG(name) = value)
 #define GTEST_USE_OWN_FLAGFILE_FLAG_ 1
 
-#endif  // GTEST_INTERNAL_HAS_ABSL_FLAGS
+#endif  // GTEST_HAS_ABSL
 
 // Thread annotations
 #if !defined(GTEST_EXCLUSIVE_LOCK_REQUIRED_)

@@ -211,7 +211,10 @@ webidl.converters.BlobPart = function (V, opts) {
       return webidl.converters.Blob(V, { strict: false })
     }
 
-    if (ArrayBuffer.isView(V) || types.isAnyArrayBuffer(V)) {
+    if (
+      ArrayBuffer.isView(V) ||
+      types.isAnyArrayBuffer(V)
+    ) {
       return webidl.converters.BufferSource(V, opts)
     }
   }
@@ -279,7 +282,10 @@ function processBlobParts (parts, options) {
 
       // 3. Append the result of UTF-8 encoding s to bytes.
       bytes.push(encoder.encode(s))
-    } else if (ArrayBuffer.isView(element) || types.isArrayBuffer(element)) {
+    } else if (
+      types.isAnyArrayBuffer(element) ||
+      types.isTypedArray(element)
+    ) {
       // 2. If element is a BufferSource, get a copy of the
       //    bytes held by the buffer source, and append those
       //    bytes to bytes.

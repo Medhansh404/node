@@ -21,25 +21,28 @@ const tmpdir = require('../common/tmpdir');
 const testDir = tmpdir.path;
 tmpdir.refresh();
 
-// Assert recursive watch does not leak handles
-const rootDirectory = fs.mkdtempSync(testDir + path.sep);
-const testDirectory = path.join(rootDirectory, 'test-7');
-const filePath = path.join(testDirectory, 'only-file.txt');
-fs.mkdirSync(testDirectory);
+(async () => {
+  // Assert recursive watch does not leak handles
+  const rootDirectory = fs.mkdtempSync(testDir + path.sep);
+  const testDirectory = path.join(rootDirectory, 'test-7');
+  const filePath = path.join(testDirectory, 'only-file.txt');
+  fs.mkdirSync(testDirectory);
 
-let watcherClosed = false;
-const watcher = fs.watch(testDirectory, { recursive: true });
-watcher.on('change', common.mustCallAtLeast(async (event, filename) => {
-  await setTimeout(common.platformTimeout(100));
-  if (filename === path.basename(filePath)) {
-    watcher.close();
-    watcherClosed = true;
-  }
-  await setTimeout(common.platformTimeout(100));
-  assert(!process._getActiveHandles().some((handle) => handle.constructor.name === 'StatWatcher'));
-}));
+  let watcherClosed = false;
+  const watcher = fs.watch(testDirectory, { recursive: true });
+  watcher.on('change', common.mustCallAtLeast(async (event, filename) => {
+    await setTimeout(common.platformTimeout(100));
+    if (filename === path.basename(filePath)) {
+      watcher.close();
+      watcherClosed = true;
+    }
+    await setTimeout(common.platformTimeout(100));
+    assert(!process._getActiveHandles().some((handle) => handle.constructor.name === 'StatWatcher'));
+  }));
 
-process.on('exit', function() {
-  assert(watcherClosed, 'watcher Object was not closed');
-});
-fs.writeFileSync(filePath, 'content');
+  process.on('exit', function() {
+    assert(watcherClosed, 'watcher Object was not closed');
+  });
+  await setTimeout(common.platformTimeout(100));
+  fs.writeFileSync(filePath, 'content');
+})().then(common.mustCall());

@@ -614,15 +614,15 @@ webidl.converters.DataView = function (V, opts = {}) {
 // https://webidl.spec.whatwg.org/#BufferSource
 webidl.converters.BufferSource = function (V, opts = {}) {
   if (types.isAnyArrayBuffer(V)) {
-    return webidl.converters.ArrayBuffer(V, { ...opts, allowShared: false })
+    return webidl.converters.ArrayBuffer(V, opts)
   }
 
   if (types.isTypedArray(V)) {
-    return webidl.converters.TypedArray(V, V.constructor, { ...opts, allowShared: false })
+    return webidl.converters.TypedArray(V, V.constructor)
   }
 
   if (types.isDataView(V)) {
-    return webidl.converters.DataView(V, opts, { ...opts, allowShared: false })
+    return webidl.converters.DataView(V, opts)
   }
 
   throw new TypeError(`Could not convert ${V} to a BufferSource.`)

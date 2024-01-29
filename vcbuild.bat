@@ -337,8 +337,7 @@ if errorlevel 1 (
 if "%target%" == "Clean" goto exit
 
 :after-build
-:: Check existence of %config% before removing it.
-if exist %config% rd %config%
+rd %config%
 if errorlevel 1 echo "Old build output exists at 'out\%config%'. Please remove." & exit /B
 :: Use /J because /D (symlink) requires special permissions.
 if EXIST out\%config% mklink /J %config% out\%config%

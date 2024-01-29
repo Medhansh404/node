@@ -9,7 +9,6 @@ const net = require('net')
 const http = require('http')
 const { pipeline } = require('stream')
 const util = require('./core/util')
-const { channels } = require('./core/diagnostics')
 const timers = require('./timers')
 const Request = require('./core/request')
 const DispatcherBase = require('./dispatcher-base')
@@ -108,6 +107,21 @@ let h2ExperimentalWarned = false
 const FastBuffer = Buffer[Symbol.species]
 
 const kClosedResolve = Symbol('kClosedResolve')
+
+const channels = {}
+
+try {
+  const diagnosticsChannel = require('diagnostics_channel')
+  channels.sendHeaders = diagnosticsChannel.channel('undici:client:sendHeaders')
+  channels.beforeConnect = diagnosticsChannel.channel('undici:client:beforeConnect')
+  channels.connectError = diagnosticsChannel.channel('undici:client:connectError')
+  channels.connected = diagnosticsChannel.channel('undici:client:connected')
+} catch {
+  channels.sendHeaders = { hasSubscribers: false }
+  channels.beforeConnect = { hasSubscribers: false }
+  channels.connectError = { hasSubscribers: false }
+  channels.connected = { hasSubscribers: false }
+}
 
 /**
  * @type {import('../types/client').default}
@@ -1177,7 +1191,6 @@ async function connect (client) {
         hostname,
         protocol,
         port,
-        version: client[kHTTPConnVersion],
         servername: client[kServerName],
         localAddress: client[kLocalAddress]
       },
@@ -1271,7 +1284,6 @@ async function connect (client) {
           hostname,
           protocol,
           port,
-          version: client[kHTTPConnVersion],
           servername: client[kServerName],
           localAddress: client[kLocalAddress]
         },
@@ -1294,7 +1306,6 @@ async function connect (client) {
           hostname,
           protocol,
           port,
-          version: client[kHTTPConnVersion],
           servername: client[kServerName],
           localAddress: client[kLocalAddress]
         },
@@ -1647,6 +1658,19 @@ function writeH2 (client, session, request) {
     return false
   }
 
+  try {
+    // TODO(HTTP/2): Should we call onConnect immediately or on stream ready event?
+    request.onConnect((err) => {
+      if (request.aborted || request.completed) {
+        return
+      }
+
+      errorRequest(client, request, err || new RequestAbortedError())
+    })
+  } catch (err) {
+    errorRequest(client, request, err)
+  }
+
   if (request.aborted) {
     return false
   }
@@ -1658,34 +1682,9 @@ function writeH2 (client, session, request) {
   headers[HTTP2_HEADER_AUTHORITY] = host || client[kHost]
   headers[HTTP2_HEADER_METHOD] = method
 
-  try {
-    // We are already connected, streams are pending.
-    // We can call on connect, and wait for abort
-    request.onConnect((err) => {
-      if (request.aborted || request.completed) {
-        return
-      }
-
-      err = err || new RequestAbortedError()
-
-      if (stream != null) {
-        util.destroy(stream, err)
-
-        h2State.openStreams -= 1
-        if (h2State.openStreams === 0) {
-          session.unref()
-        }
-      }
-
-      errorRequest(client, request, err)
-    })
-  } catch (err) {
-    errorRequest(client, request, err)
-  }
-
   if (method === 'CONNECT') {
     session.ref()
-    // We are already connected, streams are pending, first request
+    // we are already connected, streams are pending, first request
     // will create a new stream. We trigger a request to create the stream and wait until
     // `ready` event is triggered
     // We disabled endStream to allow the user to write to the stream

@@ -14,7 +14,7 @@ const { FormData } = require('./formdata')
 const { kState } = require('./symbols')
 const { webidl } = require('./webidl')
 const { Blob, File: NativeFile } = require('buffer')
-const { kBodyUsed, kHeadersList } = require('../core/symbols')
+const { kBodyUsed } = require('../core/symbols')
 const assert = require('assert')
 const { isErrored } = require('../core/util')
 const { isUint8Array, isArrayBuffer } = require('util/types')
@@ -369,12 +369,10 @@ function bodyMixinMethods (instance) {
 
       throwIfAborted(this[kState])
 
-      const contentType = this.headers[kHeadersList].get('content-type', true)
-
-      const mimeType = contentType !== null ? parseMIMEType(contentType) : 'failure'
+      const contentType = this.headers.get('Content-Type')
 
       // If mimeType’s essence is "multipart/form-data", then:
-      if (mimeType !== 'failure' && mimeType.essence === 'multipart/form-data') {
+      if (/multipart\/form-data/.test(contentType)) {
         const headers = {}
         for (const [key, value] of this.headers) headers[key] = value
 
@@ -432,7 +430,7 @@ function bodyMixinMethods (instance) {
         await busboyResolve
 
         return responseFormData
-      } else if (mimeType !== 'failure' && mimeType.essence === 'application/x-www-form-urlencoded') {
+      } else if (/application\/x-www-form-urlencoded/.test(contentType)) {
         // Otherwise, if mimeType’s essence is "application/x-www-form-urlencoded", then:
 
         // 1. Let entries be the result of parsing bytes.

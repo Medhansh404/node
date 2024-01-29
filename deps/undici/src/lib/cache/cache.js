@@ -112,12 +112,14 @@ class Cache {
     // 5.5.2
     for (const response of responses) {
       // 5.5.2.1
-      const responseObject = new Response(null)
+      const responseObject = new Response(response.body?.source ?? null)
+      const body = responseObject[kState].body
       responseObject[kState] = response
+      responseObject[kState].body = body
       responseObject[kHeaders][kHeadersList] = response.headersList
       responseObject[kHeaders][kGuard] = 'immutable'
 
-      responseList.push(responseObject.clone())
+      responseList.push(responseObject)
     }
 
     // 6.
@@ -144,6 +146,8 @@ class Cache {
     webidl.brandCheck(this, Cache)
     webidl.argumentLengthCheck(arguments, 1, { header: 'Cache.addAll' })
 
+    requests = webidl.converters['sequence<RequestInfo>'](requests)
+
     // 1.
     const responsePromises = []
 
@@ -151,17 +155,7 @@ class Cache {
     const requestList = []
 
     // 3.
-    for (let request of requests) {
-      if (request === undefined) {
-        throw webidl.errors.conversionFailed({
-          prefix: 'Cache.addAll',
-          argument: 'Argument 1',
-          types: ['undefined is not allowed']
-        })
-      }
-
-      request = webidl.converters.RequestInfo(request)
-
+    for (const request of requests) {
       if (typeof request === 'string') {
         continue
       }

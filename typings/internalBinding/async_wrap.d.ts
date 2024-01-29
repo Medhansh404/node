@@ -68,6 +68,7 @@ declare namespace InternalAsyncWrapBinding {
     SIGNREQUEST: 54;
     TLSWRAP: 55;
     VERIFYREQUEST: 56;
+    INSPECTORJSBINDING: 57;
   }
 }
 

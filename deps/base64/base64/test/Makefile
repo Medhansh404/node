@@ -1,12 +1,10 @@
-CFLAGS += -std=c99 -O3 -Wall -Wextra -pedantic -DBASE64_STATIC_DEFINE
+CFLAGS += -std=c99 -O3 -Wall -Wextra -pedantic
 ifdef OPENMP
   CFLAGS += -fopenmp
 endif
 
 TARGET := $(shell $(CC) -dumpmachine)
 ifneq (, $(findstring darwin, $(TARGET)))
-  BENCH_LDFLAGS=
-else ifneq (, $(findstring mingw, $(TARGET)))
   BENCH_LDFLAGS=
 else
   # default to linux, -lrt needed

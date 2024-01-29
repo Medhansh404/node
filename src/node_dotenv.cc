@@ -5,9 +5,7 @@
 
 namespace node {
 
-using v8::Local;
 using v8::NewStringType;
-using v8::Object;
 using v8::String;
 
 std::vector<std::string> Dotenv::GetPathFromArgs(
@@ -66,47 +64,14 @@ void Dotenv::SetEnvironment(node::Environment* env) {
   }
 }
 
-Local<Object> Dotenv::ToObject(Environment* env) {
-  Local<Object> result = Object::New(env->isolate());
-
-  for (const auto& entry : store_) {
-    auto key = entry.first;
-    auto value = entry.second;
-
-    result
-        ->Set(
-            env->context(),
-            v8::String::NewFromUtf8(
-                env->isolate(), key.data(), NewStringType::kNormal, key.size())
-                .ToLocalChecked(),
-            v8::String::NewFromUtf8(env->isolate(),
-                                    value.data(),
-                                    NewStringType::kNormal,
-                                    value.size())
-                .ToLocalChecked())
-        .Check();
-  }
-
-  return result;
-}
-
-void Dotenv::ParseContent(const std::string_view content) {
-  using std::string_view_literals::operator""sv;
-  auto lines = SplitString(content, "\n"sv);
-
-  for (const auto& line : lines) {
-    ParseLine(line);
-  }
-}
-
-Dotenv::ParseResult Dotenv::ParsePath(const std::string_view path) {
+bool Dotenv::ParsePath(const std::string_view path) {
   uv_fs_t req;
   auto defer_req_cleanup = OnScopeLeave([&req]() { uv_fs_req_cleanup(&req); });
 
   uv_file file = uv_fs_open(nullptr, &req, path.data(), 0, 438, nullptr);
   if (req.result < 0) {
     // req will be cleaned up by scope leave.
-    return ParseResult::FileError;
+    return false;
   }
   uv_fs_req_cleanup(&req);
 
@@ -124,7 +89,7 @@ Dotenv::ParseResult Dotenv::ParsePath(const std::string_view path) {
     auto r = uv_fs_read(nullptr, &req, file, &buf, 1, -1, nullptr);
     if (req.result < 0) {
       // req will be cleaned up by scope leave.
-      return ParseResult::InvalidContent;
+      return false;
     }
     uv_fs_req_cleanup(&req);
     if (r <= 0) {
@@ -133,8 +98,13 @@ Dotenv::ParseResult Dotenv::ParsePath(const std::string_view path) {
     result.append(buf.base, r);
   }
 
-  ParseContent(result);
-  return ParseResult::Valid;
+  using std::string_view_literals::operator""sv;
+  auto lines = SplitString(result, "\n"sv);
+
+  for (const auto& line : lines) {
+    ParseLine(line);
+  }
+  return true;
 }
 
 void Dotenv::AssignNodeOptionsIfAvailable(std::string* node_options) {
@@ -172,7 +142,7 @@ void Dotenv::ParseLine(const std::string_view line) {
     auto quote_character = value[quotation_index];
     value.erase(0, 1);
 
-    auto end_quotation_index = value.find(quote_character);
+    auto end_quotation_index = value.find_last_of(quote_character);
 
     // We couldn't find the closing quotation character. Terminate.
     if (end_quotation_index == std::string::npos) {

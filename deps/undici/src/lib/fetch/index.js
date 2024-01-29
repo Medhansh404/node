@@ -1206,7 +1206,7 @@ async function httpFetch (fetchParams) {
     // encouraged to, transmit an RST_STREAM frame.
     // See, https://github.com/whatwg/fetch/issues/1288
     if (request.redirect !== 'manual') {
-      fetchParams.controller.connection.destroy(undefined, false)
+      fetchParams.controller.connection.destroy()
     }
 
     // 2. Switch on request’s redirect mode:
@@ -1718,12 +1718,10 @@ async function httpNetworkFetch (
   fetchParams.controller.connection = {
     abort: null,
     destroyed: false,
-    destroy (err, abort = true) {
+    destroy (err) {
       if (!this.destroyed) {
         this.destroyed = true
-        if (abort) {
-          this.abort?.(err ?? new DOMException('The operation was aborted.', 'AbortError'))
-        }
+        this.abort?.(err ?? new DOMException('The operation was aborted.', 'AbortError'))
       }
     }
   }
@@ -2154,8 +2152,7 @@ async function httpNetworkFetch (
           } else {
             const keys = Object.keys(rawHeaders)
             for (let i = 0; i < keys.length; ++i) {
-              // The header names are already in lowercase.
-              headersList.append(keys[i], rawHeaders[keys[i]], true)
+              headersList.append(keys[i], rawHeaders[keys[i]])
             }
             // For H2, The header names are already in lowercase,
             // so we can avoid the `HeadersList#get` call here.

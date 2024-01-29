@@ -47,6 +47,8 @@ const { getSystemErrorName } = require('util');
     delete providers.WORKER;
     // TODO(danbev): Test for these
     delete providers.JSUDPWRAP;
+    if (!common.isMainThread)
+      delete providers.INSPECTORJSBINDING;
     delete providers.KEYPAIRGENREQUEST;
     delete providers.KEYGENREQUEST;
     delete providers.KEYEXPORTREQUEST;
@@ -312,6 +314,13 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   req.oncomplete = () => handle.close();
   handle.send(req, [Buffer.alloc(1)], 1, req.port, req.address, true);
   testInitialized(req, 'SendWrap');
+}
+
+if (process.features.inspector && common.isMainThread) {
+  const binding = internalBinding('inspector');
+  const handle = new binding.Connection(() => {});
+  testInitialized(handle, 'Connection');
+  handle.disconnect();
 }
 
 // PROVIDER_HEAPDUMP
